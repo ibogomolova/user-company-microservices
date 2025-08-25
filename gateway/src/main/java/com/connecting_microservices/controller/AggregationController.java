@@ -4,6 +4,7 @@ import com.connecting_microservices.dto.CompanyDto;
 import com.connecting_microservices.dto.UserDto;
 import com.connecting_microservices.dto.UserDtoWithCompany;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,22 +23,25 @@ public class AggregationController {
 
     private final WebClient.Builder webClientBuilder;
 
+    @Value("${user.service.url}")
+    private String userServiceUrl;
+
+    @Value("${company.service.url}")
+    private String companyServiceUrl;
+
     @GetMapping("/users-with-companies")
     public Mono<List<UserDtoWithCompany>> getUsersWithCompanies() {
-
         Mono<List<UserDto>> usersMono = webClientBuilder.build()
                 .get()
-                .uri("http://localhost:8081/users")
+                .uri(userServiceUrl + "/users")
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<UserDto>>() {
-                });
+                .bodyToMono(new ParameterizedTypeReference<List<UserDto>>() {});
 
         Mono<List<CompanyDto>> companiesMono = webClientBuilder.build()
                 .get()
-                .uri("http://localhost:8082/companies")
+                .uri(companyServiceUrl + "/companies")
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<CompanyDto>>() {
-                });
+                .bodyToMono(new ParameterizedTypeReference<List<CompanyDto>>() {});
 
         return Mono.zip(usersMono, companiesMono)
                 .map(tuple -> {

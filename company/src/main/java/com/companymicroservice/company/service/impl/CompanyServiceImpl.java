@@ -2,11 +2,13 @@ package com.companymicroservice.company.service.impl;
 
 import com.companymicroservice.company.dto.CompanyDto;
 import com.companymicroservice.company.entity.Company;
+import com.companymicroservice.company.event.CompanyDeletedDomainEvent;
 import com.companymicroservice.company.exception.CompanyNotFoundException;
 import com.companymicroservice.company.mapper.CompanyMapper;
 import com.companymicroservice.company.repository.CompanyRepository;
 import com.companymicroservice.company.service.CompanyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
     private final CompanyMapper companyMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -41,7 +44,8 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     public CompanyDto createCompany(CompanyDto companyDto) {
-        Company saved = companyRepository.save(companyMapper.toEntity(companyDto));
+        Company company = companyMapper.toEntity(companyDto);
+        Company saved = companyRepository.save(company);
         return companyMapper.toDto(saved, null);
     }
 
@@ -49,19 +53,19 @@ public class CompanyServiceImpl implements CompanyService {
     public CompanyDto updateCompany(UUID id, CompanyDto companyDto) {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new CompanyNotFoundException("Company with id " + id + " not found"));
-
         company.setName(companyDto.getName());
         company.setBudget(companyDto.getBudget());
-
         Company updated = companyRepository.save(company);
         return companyMapper.toDto(updated, null);
     }
 
     @Override
     public void deleteCompany(UUID id) {
-        if (!companyRepository.existsById(id)) {
-            throw new CompanyNotFoundException("Company with id " + id + " not found");
-        }
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new CompanyNotFoundException("Company with id " + id + " not found"));
+
         companyRepository.deleteById(id);
+
+        eventPublisher.publishEvent(new CompanyDeletedDomainEvent(this, id));
     }
 }
