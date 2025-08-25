@@ -1,7 +1,26 @@
+version: "3.9"
+
 services:
+  kafka:
+    image: bitnami/kafka:3.9
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   postgres_company:
     image: postgres:15
-    container_name: postgres_company
     environment:
       POSTGRES_DB: ${COMPANY_M_DB}
       POSTGRES_USER: ${COMPANY_M_ADMIN}
@@ -10,10 +29,14 @@ services:
       - "5432:5432"
     volumes:
       - company_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${COMPANY_M_ADMIN}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres_user:
     image: postgres:15
-    container_name: postgres_user
     environment:
       POSTGRES_DB: ${USERS_M_DB}
       POSTGRES_USER: ${USERS_M_ADMIN}
@@ -22,37 +45,53 @@ services:
       - "5433:5432"
     volumes:
       - user_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USERS_M_ADMIN}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   company-service:
     build: ./company
-    container_name: company_service
     depends_on:
       - postgres_company
+      - kafka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_company:5432/${COMPANY_M_DB}
       SPRING_DATASOURCE_USERNAME: ${COMPANY_M_ADMIN}
       SPRING_DATASOURCE_PASSWORD: ${COMPANY_M_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8082:8082"
 
   user-service:
     build: ./user
-    container_name: user_service
     depends_on:
       - postgres_user
+      - kafka
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_user:5432/${USERS_M_DB}
       SPRING_DATASOURCE_USERNAME: ${USERS_M_ADMIN}
       SPRING_DATASOURCE_PASSWORD: ${USERS_M_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8081:8081"
 
   gateway-service:
     build: ./gateway
-    container_name: gateway_service
     depends_on:
-      - company-service
       - user-service
+      - company-service
     environment:
       USER_SERVICE_URL: http://user-service:8081
       COMPANY_SERVICE_URL: http://company-service:8082

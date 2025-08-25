@@ -2,11 +2,13 @@ package com.usersmicroservice.user.service.impl;
 
 import com.usersmicroservice.user.dto.UserDto;
 import com.usersmicroservice.user.entity.User;
+import com.usersmicroservice.user.event.CompanyDeletedEventPayload;
 import com.usersmicroservice.user.exception.UserNotFoundException;
 import com.usersmicroservice.user.mapper.UserMapper;
 import com.usersmicroservice.user.reposirory.UserRepository;
 import com.usersmicroservice.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDto create(UserDto userDto) {
+        if (userDto.getCompany() == null || userDto.getCompany().getId() == null) {
+            throw new IllegalArgumentException("User must belong to a company");
+        }
         User user = userMapper.toEntity(userDto);
         User saved = userRepository.save(user);
         return userMapper.toDto(saved, null);
@@ -39,7 +44,9 @@ public class UserServiceImpl implements UserService {
         existing.setFirstName(userDto.getFirstName());
         existing.setLastName(userDto.getLastName());
         existing.setPhone(userDto.getPhone());
-        existing.setCompanyId(userDto.getCompany() != null ? userDto.getCompany().getId() : null);
+        if (userDto.getCompany() != null && userDto.getCompany().getId() != null) {
+            existing.setCompanyId(userDto.getCompany().getId());
+        }
 
         User updated = userRepository.save(existing);
         return userMapper.toDto(updated, null);
@@ -63,8 +70,16 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
     public void delete(UUID id) {
         userRepository.deleteById(id);
+    }
+
+    @KafkaListener(
+            topics = "${app.topics.company-deleted}",
+            groupId = "user-service",
+            containerFactory = "companyDeletedKafkaListenerContainerFactory"
+    )
+    public void onCompanyDeleted(CompanyDeletedEventPayload payload) {
+        userRepository.deleteAllByCompanyId(payload.companyId());
     }
 }
