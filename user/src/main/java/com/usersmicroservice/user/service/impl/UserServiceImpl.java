@@ -47,6 +47,11 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserDto create(UserDto userDto) {
         User user = userMapper.toEntity(userDto);
+
+        if (userDto.getCompany() != null && userDto.getCompany().getId() != null) {
+            user.setCompanyId(userDto.getCompany().getId());
+        }
+
         User saved = userRepository.save(user);
 
         UserEvent event = new UserEvent();
@@ -55,15 +60,16 @@ public class UserServiceImpl implements UserService {
         event.setLastName(saved.getLastName());
         event.setPhone(saved.getPhone());
 
-        if (userDto.getCompany() != null) {
-            event.setCompanyId(userDto.getCompany().getId());
-            event.setCompanyName(userDto.getCompany().getName());
+        if (user.getCompanyId() != null) {
+            CompanyInfoDto companyInfo = companyClient.getCompanyById(user.getCompanyId());
+            event.setCompanyId(companyInfo.getId());
+            event.setCompanyName(companyInfo.getName());
         }
         event.setType(UserEvent.EventType.CREATED);
 
         userEventProducer.sendCompanyEvent("company-events", event);
 
-        return userMapper.toDto(saved, null);
+        return userMapper.toDto(saved, event.getCompanyId() != null ? companyClient.getCompanyById(user.getCompanyId()) : null);
     }
 
     /**
@@ -102,7 +108,7 @@ public class UserServiceImpl implements UserService {
 
         userEventProducer.sendCompanyEvent("company-events", event);
 
-        return userMapper.toDto(updated, null);
+        return userMapper.toDto(updated, event.getCompanyId() != null ? companyClient.getCompanyById(existing.getCompanyId()) : null);
     }
 
     /**
