@@ -7,10 +7,13 @@ import com.companymicroservice.company.entity.Company;
 import com.companymicroservice.company.event.CompanyEvent;
 import com.companymicroservice.company.event.CompanyEventProducer;
 import com.companymicroservice.company.exception.CompanyNotFoundException;
+import com.companymicroservice.company.mapper.CompanyEventMapper;
 import com.companymicroservice.company.mapper.CompanyMapper;
 import com.companymicroservice.company.repository.CompanyRepository;
 import com.companymicroservice.company.service.CompanyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +38,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
     private final CompanyMapper companyMapper;
+    private final CompanyEventMapper companyEventMapper;
     private final CompanyEventProducer eventProducer;
     private final UserClient userClient;
 
@@ -45,14 +49,12 @@ public class CompanyServiceImpl implements CompanyService {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<CompanyDto> getAllCompanies() {
-        return companyRepository.findAll()
-                .stream()
+    public Page<CompanyDto> getAllCompanies(Pageable pageable) {
+        return companyRepository.findAll(pageable)
                 .map(company -> {
                     List<UserInfoDto> users = userClient.getUsersByCompany(company.getId());
                     return companyMapper.toDto(company, users);
-                })
-                .collect(Collectors.toList());
+                });
     }
 
     /**
@@ -80,7 +82,8 @@ public class CompanyServiceImpl implements CompanyService {
      */
     @Override
     public CompanyDto createCompany(CompanyDto companyDto) {
-        Company saved = companyRepository.save(companyMapper.toEntity(companyDto));
+        Company company = companyMapper.toEntity(companyDto);
+        Company saved = companyRepository.save(company);
 
         List<UserInfoDto> users = new ArrayList<>();
         if (companyDto.getUsers() != null) {
@@ -96,13 +99,7 @@ public class CompanyServiceImpl implements CompanyService {
                     user.setId(UUID.randomUUID());
                     fullUser = user;
                 }
-                CompanyEvent event = new CompanyEvent();
-                event.setUserId(fullUser.getId());
-                event.setFirstName(fullUser.getFirstName());
-                event.setLastName(fullUser.getLastName());
-                event.setPhone(fullUser.getPhone());
-                event.setCompanyId(saved.getId());
-                event.setCompanyName(saved.getName());
+                CompanyEvent event = companyEventMapper.toEvent(fullUser, saved);
                 event.setType(CompanyEvent.EventType.CREATED);
 
                 eventProducer.sendUserEvent("user-events", event);
@@ -125,8 +122,7 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new CompanyNotFoundException("Company with id " + id + " not found"));
 
-        company.setName(companyDto.getName());
-        company.setBudget(companyDto.getBudget());
+        companyMapper.updateEntityFromDto(companyDto, company);
 
         Company updated = companyRepository.save(company);
 
@@ -144,13 +140,7 @@ public class CompanyServiceImpl implements CompanyService {
                     user.setId(UUID.randomUUID());
                     fullUser = user;
                 }
-                CompanyEvent event = new CompanyEvent();
-                event.setUserId(fullUser.getId());
-                event.setFirstName(fullUser.getFirstName());
-                event.setLastName(fullUser.getLastName());
-                event.setPhone(fullUser.getPhone());
-                event.setCompanyId(updated.getId());
-                event.setCompanyName(updated.getName());
+                CompanyEvent event = companyEventMapper.toEvent(fullUser, updated);
                 event.setType(CompanyEvent.EventType.UPDATED);
 
                 eventProducer.sendUserEvent("user-events", event);
@@ -175,9 +165,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         if (company.getUserIds() != null) {
             company.getUserIds().forEach(userId -> {
-                CompanyEvent event = new CompanyEvent();
-                event.setUserId(userId);
-                event.setCompanyId(company.getId());
+                CompanyEvent event = companyEventMapper.toDeleteEvent(userId, company);
                 event.setType(CompanyEvent.EventType.DELETED);
                 eventProducer.sendUserEvent("user-events", event);
             });
@@ -215,7 +203,7 @@ public class CompanyServiceImpl implements CompanyService {
     public void removeUserFromCompany(UUID userId) {
         List<Company> companiesWithUser = companyRepository.findAll().stream()
                 .filter(company -> company.getUserIds() != null && company.getUserIds().contains(userId))
-                .collect(Collectors.toList());
+                .toList();
 
         for (Company company : companiesWithUser) {
             company.getUserIds().remove(userId);
