@@ -68,7 +68,7 @@ user-company-microservices
 
 ## 4. Быстрый старт (локально)
 ### Требования
-- Java 17+
+- Java 21+
 - Maven 3.8+
 - PostgreSQL
 - Docker, docker-compose
@@ -155,8 +155,6 @@ spring.kafka.producer.value-serializer=org.apache.kafka.common.serialization.Str
 #### Company client
 company.service.url=http://company-service:8082
 
-### Совет: храните пароли и секреты в переменных окружения или secret manager.
-
 ## 6. Docker / docker-compose
 
 В проекте есть docker-compose.yml, который поднимает:
@@ -208,15 +206,7 @@ GET /companies — список всех компаний
 
 (Подробные схемы DTO находятся в src/main/java/.../dto.)
 
-## 10. Рекомендации по безопасности
-
-Добавить Spring Security + JWT для авторизации.
-
-Хранить секреты (пароли, ключи) только в env vars / secret manager.
-
-DTO использовать вместо Entity для сериализации.
-
-## 11. Contribution / Development
+## 10. Contribution / Development
 
 Форкни репозиторий
 
