@@ -2,11 +2,13 @@ package com.companymicroservice.company.controller;
 
 import com.companymicroservice.company.dto.CompanyDto;
 import com.companymicroservice.company.service.CompanyService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -21,28 +23,31 @@ public class CompanyController {
     private final CompanyService companyService;
 
     @GetMapping
-    public List<CompanyDto> getAllCompanies() {
-        return companyService.getAllCompanies();
+    public Page<CompanyDto> getAllCompanies(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return companyService.getAllCompanies(PageRequest.of(page, size));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CompanyDto> getCompanyById(@PathVariable UUID id) {
-        return ResponseEntity.ok(companyService.getCompanyById(id));
+    public CompanyDto getCompanyById(@PathVariable UUID id) {
+        return companyService.getCompanyById(id);
     }
 
     @PostMapping
-    public ResponseEntity<CompanyDto> createCompany(@RequestBody CompanyDto companyDto) {
-        return ResponseEntity.ok(companyService.createCompany(companyDto));
+    public CompanyDto createCompany(@RequestBody @Valid CompanyDto companyDto) {
+        return companyService.createCompany(companyDto);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CompanyDto> updateCompany(@PathVariable UUID id, @RequestBody CompanyDto companyDto) {
-        return ResponseEntity.ok(companyService.updateCompany(id, companyDto));
+    public CompanyDto updateCompany(@PathVariable UUID id,
+                                    @RequestBody @Valid CompanyDto companyDto) {
+        return companyService.updateCompany(id, companyDto);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCompany(@PathVariable UUID id) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCompany(@PathVariable UUID id) {
         companyService.deleteCompany(id);
-        return ResponseEntity.noContent().build();
     }
 }
