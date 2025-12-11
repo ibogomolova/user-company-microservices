@@ -236,4 +236,6 @@ FeignClient не находит сервис → проверь company.service.
  Запуск тестов
 ./mvnw test
 
-## 13. Контакты / лицензия(позже)
+## 13. Контакты 
+Bogomolova Iriva - developer
+Tg - https://t.me/bogomolovaira
