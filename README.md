@@ -1,6 +1,6 @@
 # User-company-microservices
 
-Кратко: Два Spring Boot микросервиса (user-service и company-service), которые хранят данные о пользователях и компаниях, взаимодействуют через REST (FeignClient) и управляются через API Gateway. Данные хранятся в PostgreSQL, события синхронизируются через Kafka. Всё разворачивается с помощью Docker Compose.
+Два Spring Boot микросервиса (user-service и company-service), которые хранят данные о пользователях и компаниях, взаимодействуют через REST (FeignClient) и управляются через API Gateway. Данные хранятся в PostgreSQL, события синхронизируются через Kafka. Всё разворачивается с помощью Docker Compose.
 
 ---
 
@@ -17,7 +17,7 @@
 10. Рекомендации по безопасности
 11. Развитие проекта / contribution
 12. Troubleshooting (частые проблемы)
-13. Контакты / лицензия
+13. Контакты
 
 ---
 
@@ -237,5 +237,5 @@ FeignClient не находит сервис → проверь company.service.
 ./mvnw test
 
 ## 13. Контакты 
-Bogomolova Iriva - developer
+Bogomolova Irina - developer
 Tg - https://t.me/bogomolovaira
